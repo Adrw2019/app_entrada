@@ -1,0 +1,1 @@
+const QRCode=require('qrcode');const payload=JSON.stringify({type:'asistencia',info:'control-compania'});QRCode.toDataURL(payload,{errorCorrectionLevel:'H'}).then(console.log).catch(err=>{console.error(err);process.exit(1);});
