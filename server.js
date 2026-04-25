@@ -21,6 +21,11 @@ const pool = new Pool({
 
 const server = http.createServer(app);
 
+const io = new Server(server, {
+  cors: { origin: '*' },
+  path: '/socket.io'
+});
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
   port: process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : 465,
