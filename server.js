@@ -1021,14 +1021,17 @@ app.post('/empleados', (req, res) => {
   );
 });
 
-app.get('/empleados', (req, res) => {
-  db.query('SELECT * FROM empleados', (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ mensaje: 'Error al obtener empleados' });
-    }
-    res.json(result);
-  });
+app.get('/empleados', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM empleados ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error al obtener empleados:', error);
+    res.status(500).json({
+      mensaje: 'Error al obtener empleados',
+      detalle: error.message
+    });
+  }
 });
 
 app.delete('/empleados/:id', async (req, res) => {
