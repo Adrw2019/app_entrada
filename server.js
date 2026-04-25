@@ -1002,23 +1002,35 @@ app.get('/asistencias', (req, res) => {
   });
 });
 
-app.post('/empleados', (req, res) => {
-  const { nombre, cedula, cargo, celular } = req.body;
-  if (!nombre || !cedula || !cargo || !celular) {
-    return res.status(400).json({ mensaje: 'Datos incompletos' });
-  }
+app.post('/empleados', async (req, res) => {
+  try {
+    const { nombre, cedula, cargo, celular } = req.body;
 
-  db.query(
-    'INSERT INTO empleados (nombre, cedula, cargo, celular) VALUES (?, ?, ?, ?)',
-    [nombre, cedula, cargo, celular],
-    err => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ mensaje: 'No se pudo crear el empleado' });
-      }
-      res.send('Empleado creado');
+    if (!nombre || !cedula || !cargo || !celular) {
+      return res.status(400).json({ mensaje: 'Datos incompletos' });
     }
-  );
+
+    const result = await pool.query(
+      `INSERT INTO empleados (nombre, cedula, cargo, celular)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [nombre, cedula, cargo, celular]
+    );
+
+    res.json({
+      success: true,
+      mensaje: 'Empleado creado',
+      empleado: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error al crear empleado:', error);
+    res.status(500).json({
+      success: false,
+      mensaje: 'No se pudo crear el empleado',
+      detalle: error.message
+    });
+  }
 });
 
 app.get('/empleados', async (req, res) => {
