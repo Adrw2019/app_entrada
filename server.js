@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const nodemailer = require('nodemailer');
@@ -30,8 +30,8 @@ const transporter = nodemailer.createTransport({
 });
 
 transporter.verify()
-  .then(() => console.log('✅ SMTP verificado: listo para enviar'))
-  .catch(err => console.error('❌ Falló verificación SMTP:', err));
+  .then(() => console.log('âœ… SMTP verificado: listo para enviar'))
+  .catch(err => console.error('âŒ FallÃ³ verificaciÃ³n SMTP:', err));
 
 app.use(cors());
 app.use(express.json());
@@ -172,11 +172,11 @@ if (!req.session.cedula) {
       <div class="card">
         <div class="icon-wrap">??</div>
         <p class="title">Control de Asistencia</p>
-        <h1 class="name">Identificaci�n</h1>
-        <p class="subtitle">Ingresa tu c�dula para continuar</p>
+        <h1 class="name">Identificación</h1>
+        <p class="subtitle">Ingresa tu cédula para continuar</p>
 
         <form method="POST" action="/login-qr">
-          <input class="input" type="text" name="cedula" placeholder="C�dula" required>
+          <input class="input" type="text" name="cedula" placeholder="Cédula" required>
           <button class="btn" type="submit">Ingresar</button>
         </form>
 
@@ -270,7 +270,7 @@ if (!req.session.cedula) {
 
       const minutosTranscurridos = (ahora - entrada) / (1000 * 60);
 
-      // Cambia 5 por 30 o 60 en producci�n
+      // Cambia 5 por 30 o 60 en producción
       const minutosMinimosParaSalida = 5;
 
       if (minutosTranscurridos < minutosMinimosParaSalida) {
@@ -291,7 +291,7 @@ if (!req.session.cedula) {
           horaSalidaOficial = '14:00:00';
           horasJornada = 5;
         } else {
-          // Lunes a s�bado
+          // Lunes a sábado
           horaEntradaOficial = '08:00:00';
           horaSalidaOficial = '17:30:00';
           horasJornada = 9.5;
@@ -305,7 +305,7 @@ if (!req.session.cedula) {
         const valorDia = 60000;
         const valorHora = valorDia / horasJornada;
 
-        // Lleg� tarde si entr� despu�s de la hora oficial
+        // Llegó tarde si entró después de la hora oficial
         const llegoTarde = entrada > entradaOficial ? 1 : 0;
 
         // Horas trabajadas reales
@@ -317,7 +317,7 @@ if (!req.session.cedula) {
           extraEntrada = (entradaOficial - entrada) / (1000 * 60 * 60);
         }
 
-        // Extra por salir despu�s
+        // Extra por salir después
         let extraSalida = 0;
         if (salida > salidaOficial) {
           extraSalida = (salida - salidaOficial) / (1000 * 60 * 60);
@@ -332,7 +332,7 @@ if (!req.session.cedula) {
           descuento = Math.round(horasFaltantes * valorHora);
         }
 
-        // Pago base del d�a menos descuento
+        // Pago base del día menos descuento
         let pago = valorDia - descuento;
 
         // Sumar extras al 150%
@@ -611,7 +611,7 @@ app.post('/asistencia', async (req, res) => {
         [cedula]
       );
 
-      return res.json({ mensaje: 'Entrada registrada ✅' });
+      return res.json({ mensaje: 'Entrada registrada âœ…' });
     }
 
     await dbPromise.query(
@@ -619,7 +619,7 @@ app.post('/asistencia', async (req, res) => {
       [asistencia[0].id]
     );
 
-    return res.json({ mensaje: 'Salida registrada ✅' });
+    return res.json({ mensaje: 'Salida registrada âœ…' });
   } catch (error) {
     console.error('Error en POST /asistencia:', error);
     return res.status(500).json({ error: 'No se pudo registrar asistencia' });
@@ -668,7 +668,7 @@ db.connect(err => {
   if (err) {
     console.error('Error MySQL:', err);
   } else {
-    console.log('MySQL conectado ✅');
+    console.log('MySQL conectado âœ…');
   }
 });
 
@@ -698,10 +698,10 @@ app.post('/login', (req, res) => {
 app.post('/register', (req, res) => {
   const { username, email, password } = req.body;
 
-  console.log('📥 Datos recibidos:', username, email, password);
+  console.log('ðŸ“¥ Datos recibidos:', username, email, password);
 
   if (!username || !email || !password) {
-    return res.json({ success: false, msg: 'Campos vacíos' });
+    return res.json({ success: false, msg: 'Campos vacÃ­os' });
   }
 
   db.query(
@@ -709,11 +709,11 @@ app.post('/register', (req, res) => {
     [username, email, password],
     (err, result) => {
       if (err) {
-        console.error('❌ Error MySQL:', err);
+        console.error('âŒ Error MySQL:', err);
         return res.json({ success: false, msg: 'Error BD' });
       }
 
-      console.log('✅ Usuario creado');
+      console.log('âœ… Usuario creado');
       res.json({ success: true });
     }
   );
@@ -790,7 +790,7 @@ app.get('/test', (req, res) => {
     hora: new Date().toTimeString().split(' ')[0]
   });
 
-  res.send('Notificaci�n enviada');
+  res.send('Notificación enviada');
 });
 
 app.post('/forgot-password', (req, res) => {
@@ -829,10 +829,10 @@ app.post('/forgot-password', (req, res) => {
         const mailOptions = {
           from: 'Control Asistencia <repararpc2024@gmail.com>',
           to: email,
-          subject: 'Recupera tu contraseña',
-          text: `Hola ${username}, haz clic en el enlace para cambiar tu contraseña:\n\n${link}`,
+          subject: 'Recupera tu contraseÃ±a',
+          text: `Hola ${username}, haz clic en el enlace para cambiar tu contraseÃ±a:\n\n${link}`,
           html: `<p>Hola <strong>${username}</strong></p>
-                 <p>Haz clic aquí para cambiar tu contraseña:</p>
+                 <p>Haz clic aquÃ­ para cambiar tu contraseÃ±a:</p>
                  <a href="${link}">${link}</a>`
         };
 
@@ -842,13 +842,13 @@ app.post('/forgot-password', (req, res) => {
         transporter.sendMail(mailOptions)
           .then(() => res.json({
             success: true,
-            msg: 'Te enviamos un correo con instrucciones para cambiar tu contraseña.'
+            msg: 'Te enviamos un correo con instrucciones para cambiar tu contraseÃ±a.'
           }))
           .catch(error => {
-            console.error('Error al enviar correo de recuperación:', error);
+            console.error('Error al enviar correo de recuperaciÃ³n:', error);
             res.status(500).json({
               success: false,
-              msg: 'No se pudo enviar el correo de recuperación. Inténtalo más tarde.'
+              msg: 'No se pudo enviar el correo de recuperaciÃ³n. IntÃ©ntalo mÃ¡s tarde.'
             });
           });
       }
@@ -861,7 +861,7 @@ app.post('/reset-password/:token', (req, res) => {
   const { newPassword } = req.body;
 
   if (!newPassword) {
-    return res.status(400).send('Hay que enviar la nueva contraseña');
+    return res.status(400).send('Hay que enviar la nueva contraseÃ±a');
   }
 
   db.query(
@@ -874,7 +874,7 @@ app.post('/reset-password/:token', (req, res) => {
       }
 
       if (!result.length) {
-        return res.status(400).send('Token inválido o expirado');
+        return res.status(400).send('Token invÃ¡lido o expirado');
       }
 
       const userId = result[0].id;
@@ -883,10 +883,10 @@ app.post('/reset-password/:token', (req, res) => {
         [newPassword, userId],
         updateErr => {
           if (updateErr) {
-            console.error('Error guardando nueva contraseña:', updateErr);
-            return res.status(500).send('No se pudo actualizar la contraseña');
+            console.error('Error guardando nueva contraseÃ±a:', updateErr);
+            return res.status(500).send('No se pudo actualizar la contraseÃ±a');
           }
-          res.send('Contraseña actualizada');
+          res.send('ContraseÃ±a actualizada');
         }
       );
     }
@@ -900,7 +900,7 @@ app.get('/qr', async (req, res) => {
     res.json({ dataUrl, payload });
   } catch (error) {
     console.error('Error generando QR:', error);
-    res.status(500).json({ error: 'No se pudo crear el código QR' });
+    res.status(500).json({ error: 'No se pudo crear el cÃ³digo QR' });
   }
 });
 
@@ -1061,7 +1061,7 @@ app.get('/nomina/:cedula', (req, res) => {
     (err, result) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ mensaje: 'Error al calcular nómina' });
+        return res.status(500).json({ mensaje: 'Error al calcular nÃ³mina' });
       }
       const dias = result[0]?.dias ?? 0;
       res.json({
@@ -1079,7 +1079,7 @@ app.get('/test-email', async (req, res) => {
       from: 'Control Asistencia <repararpc2024@gmail.com>',
       to: 'repararpc2024@gmail.com',
       subject: 'Prueba correo',
-      text: 'Funciona correctamente 🚀'
+      text: 'Funciona correctamente ðŸš€'
     };
 
     console.log('Enviando correo de prueba con opciones:', mailOptions);
