@@ -11,11 +11,15 @@ const crypto = require('crypto');
 const session = require('express-session');
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' },
-  path: '/socket.io'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
+const server = http.createServer(app);
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -655,22 +659,33 @@ app.delete('/asistencia/:id', async (req, res) => {
   }
 });
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306
-});
-const dbPromise = db.promise();
+const dbPromise = {
+  async query(sql, params = []) {
+    let i = 0;
 
-db.connect(err => {
-  if (err) {
-    console.error('Error MySQL:', err);
-  } else {
-    console.log('MySQL conectado âœ…');
+    const pgSql = sql
+      .replace(/\?/g, () => `$${++i}`)
+      .replace(/CURDATE\(\)/g, 'CURRENT_DATE')
+      .replace(/CURTIME\(\)/g, 'CURRENT_TIME')
+      .replace(/DATE\(fecha\)/g, 'fecha');
+
+    const result = await pool.query(pgSql, params);
+    return [result.rows, result];
   }
-});
+};
+
+const db = {
+  query(sql, params, callback) {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+
+    dbPromise.query(sql, params)
+      .then(([rows, result]) => callback(null, rows, result))
+      .catch(error => callback(error));
+  }
+};
 
 io.on('connection', socket => {
   console.log('Admin conectado');
