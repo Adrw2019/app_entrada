@@ -1140,7 +1140,9 @@ app.get('/test-email', async (req, res) => {
     res.status(500).send('Error enviando correo de prueba - revisa la consola del servidor.');
   }
 });
-
+app.get('/', (req, res) => {
+  res.send('Backend asistencia funcionando ✅');
+});
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, '0.0.0.0', () => {
