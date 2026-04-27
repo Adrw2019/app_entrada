@@ -715,28 +715,44 @@ app.post('/login', (req, res) => {
   );
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
 
-  console.log('ðŸ“¥ Datos recibidos:', username, email, password);
+  console.log('REGISTRO RECIBIDO:', req.body);
 
   if (!username || !email || !password) {
-    return res.json({ success: false, msg: 'Campos vacÃ­os' });
+    return res.json({
+      success: false,
+      msg: 'Campos vacíos'
+    });
   }
 
-  db.query(
-    'INSERT INTO usuarios (username, email, password) VALUES (?, ?, ?)',
-    [username, email, password],
-    (err, result) => {
-      if (err) {
-        console.error('âŒ Error MySQL:', err);
-        return res.json({ success: false, msg: 'Error BD' });
-      }
+  try {
+    const result = await pool.query(
+      `INSERT INTO usuarios (username, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING id, username, email`,
+      [username, email, password]
+    );
 
-      console.log('âœ… Usuario creado');
-      res.json({ success: true });
-    }
-  );
+    console.log('Usuario creado:', result.rows[0]);
+
+    return res.json({
+      success: true,
+      msg: 'Usuario creado correctamente',
+      usuario: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('ERROR REAL REGISTER:', error);
+
+    return res.status(500).json({
+      success: false,
+      msg: 'Error BD',
+      detalle: error.message,
+      code: error.code
+    });
+  }
 });
 
 app.post('/scan', (req, res) => {
@@ -1148,4 +1164,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
-
