@@ -829,104 +829,69 @@ app.get('/test', (req, res) => {
   res.send('Notificación enviada');
 });
 
-app.post('/forgot-password', (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ success: false, msg: 'Es necesario indicar el correo' });
-  }
+app.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
 
-  const query = 'SELECT id, username FROM usuarios WHERE email=? LIMIT 1';
-  db.query(query, [email], (err, result) => {
-    if (err) {
-      console.error('Error MySQL (forgot-password):', err);
-      return res.status(500).json({ success: false, msg: 'No se pudo verificar el correo' });
+    const user = await pool.query(
+      'SELECT * FROM usuarios WHERE email = $1',
+      [email]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    if (!result.length) {
-      return res.status(404).json({ success: false, msg: 'Correo no registrado' });
-    }
-
-    const userId = result[0].id;
-    const username = result[0].username ?? 'usuario';
     const token = crypto.randomBytes(32).toString('hex');
     const expires = Date.now() + 3600000;
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-    const link = `${baseUrl}/reset-password/${token}`;
 
-    db.query(
-      'UPDATE usuarios SET reset_token=?, reset_expires=? WHERE id=?',
-      [token, expires, userId],
-      updateErr => {
-        if (updateErr) {
-          console.error('Error guardando token:', updateErr);
-          return res.status(500).json({ success: false, msg: 'No se pudo guardar el token' });
-        }
-
-        const mailOptions = {
-          from: 'Control Asistencia <repararpc2024@gmail.com>',
-          to: email,
-          subject: 'Recupera tu contraseÃ±a',
-          text: `Hola ${username}, haz clic en el enlace para cambiar tu contraseÃ±a:\n\n${link}`,
-          html: `<p>Hola <strong>${username}</strong></p>
-                 <p>Haz clic aquÃ­ para cambiar tu contraseÃ±a:</p>
-                 <a href="${link}">${link}</a>`
-        };
-
-        console.log('Solicitud forgot-password para:', email);
-        console.log('Opciones correo:', mailOptions);
-
-        transporter.sendMail(mailOptions)
-          .then(() => res.json({
-            success: true,
-            msg: 'Te enviamos un correo con instrucciones para cambiar tu contraseÃ±a.'
-          }))
-          .catch(error => {
-            console.error('Error al enviar correo de recuperaciÃ³n:', error);
-            res.status(500).json({
-              success: false,
-              msg: 'No se pudo enviar el correo de recuperaciÃ³n. IntÃ©ntalo mÃ¡s tarde.'
-            });
-          });
-      }
+    await pool.query(
+      'UPDATE usuarios SET reset_token=$1, reset_expires=$2 WHERE email=$3',
+      [token, expires, email]
     );
-  });
+
+    const link = `${process.env.APP_URL}/reset-password/${token}`;
+
+    res.json({
+      success: true,
+      msg: 'Link generado',
+      link: link
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: 'Error servidor' });
+  }
 });
 
-app.post('/reset-password/:token', (req, res) => {
-  const { token } = req.params;
-  const { newPassword } = req.body;
+app.post('/reset-password/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
 
-  if (!newPassword) {
-    return res.status(400).send('Hay que enviar la nueva contraseÃ±a');
-  }
+    const user = await pool.query(
+      'SELECT * FROM usuarios WHERE reset_token=$1 AND reset_expires > $2',
+      [token, Date.now()]
+    );
 
-  db.query(
-    'SELECT id FROM usuarios WHERE reset_token=? AND reset_expires>? LIMIT 1',
-    [token, Date.now()],
-    (err, result) => {
-      if (err) {
-        console.error('Error validando token:', err);
-        return res.status(500).send('Error interno');
-      }
-
-      if (!result.length) {
-        return res.status(400).send('Token invÃ¡lido o expirado');
-      }
-
-      const userId = result[0].id;
-      db.query(
-        'UPDATE usuarios SET password=?, reset_token=NULL, reset_expires=NULL WHERE id=?',
-        [newPassword, userId],
-        updateErr => {
-          if (updateErr) {
-            console.error('Error guardando nueva contraseÃ±a:', updateErr);
-            return res.status(500).send('No se pudo actualizar la contraseÃ±a');
-          }
-          res.send('ContraseÃ±a actualizada');
-        }
-      );
+    if (user.rows.length === 0) {
+      return res.status(400).json({ msg: 'Token inválido o expirado' });
     }
-  );
+
+    await pool.query(
+      'UPDATE usuarios SET password=$1, reset_token=NULL, reset_expires=NULL WHERE reset_token=$2',
+      [password, token]
+    );
+
+    res.json({
+      success: true,
+      msg: 'Contraseña actualizada'
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: 'Error servidor' });
+  }
 });
 
 app.get('/qr', async (req, res) => {
