@@ -391,6 +391,8 @@ if (!req.session.cedula) {
       }
     }
 
+    req.session.cedula = null;
+
     return res.send(`
 <!DOCTYPE html>
 <html lang="es">
