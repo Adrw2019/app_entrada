@@ -232,9 +232,11 @@ if (!req.session.cedula) {
     let color = '#28a745';
 
     if (rows.length === 0) {
+      const horaEntrada = horaColombia();
+
       await dbPromise.query(
         'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, ?, ?)',
-        [cedula, fechaColombia(), horaColombia()]
+        [cedula, fechaColombia(), horaEntrada]
       );
 
       mensaje = 'Entrada registrada ?';
@@ -250,7 +252,7 @@ if (!req.session.cedula) {
         cedula,
         nombre,
         cargo,
-        hora: horaColombia()
+        hora: horaEntrada
       });
     }
     else if (rows[0].hora_salida) {
