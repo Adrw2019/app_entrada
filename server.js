@@ -10,6 +10,18 @@ const QRCode = require('qrcode');
 const crypto = require('crypto');
 const session = require('express-session');
 
+function horaColombia() {
+  const ahora = new Date();
+  ahora.setHours(ahora.getHours() - 5);
+  return ahora.toTimeString().split(' ')[0];
+}
+
+function fechaColombia() {
+  const ahora = new Date();
+  ahora.setHours(ahora.getHours() - 5);
+  return ahora.toISOString().split('T')[0];
+}
+
 const app = express();
 
 const pool = new Pool({
@@ -221,8 +233,8 @@ if (!req.session.cedula) {
 
     if (rows.length === 0) {
       await dbPromise.query(
-        'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, CURDATE(), CURTIME())',
-        [cedula]
+        'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, ?, ?)',
+        [cedula, fechaColombia(), horaColombia()]
       );
 
       mensaje = 'Entrada registrada ?';
@@ -231,14 +243,14 @@ if (!req.session.cedula) {
         cedula,
         nombre,
         cargo,
-        hora: new Date().toTimeString().split(' ')[0]
+        hora: horaColombia()
       });
       io.emit('notificacion', {
         tipo: 'ENTRADA',
         cedula,
         nombre,
         cargo,
-        hora: new Date().toTimeString().split(' ')[0]
+        hora: horaColombia()
       });
     }
     else if (rows[0].hora_salida) {
@@ -272,7 +284,7 @@ if (!req.session.cedula) {
     }
     else {
       const entradaStr = rows[0].hora_entrada;
-      const ahoraStr = new Date().toTimeString().split(' ')[0];
+      const ahoraStr = horaColombia();
 
       const entrada = new Date(`1970-01-01T${entradaStr}`);
       const ahora = new Date(`1970-01-01T${ahoraStr}`);
@@ -286,7 +298,7 @@ if (!req.session.cedula) {
         mensaje = `Entrada ya registrada ?<br>Debes esperar al menos ${minutosMinimosParaSalida} minutos para marcar salida`;
         color = '#ffc107';
       } else {
-        const salidaStr = new Date().toTimeString().split(' ')[0];
+        const salidaStr = horaColombia();
         const hoy = new Date();
         const diaSemana = hoy.getDay();
 
@@ -549,7 +561,9 @@ if (!req.session.cedula) {
 
       <div class="time-box">
         <p class="time-label">Hora del registro</p>
-        <p class="time">${new Date().toLocaleTimeString()}</p>
+        <p class="time">${new Date().toLocaleTimeString('es-CO', {
+          timeZone: 'America/Bogota'
+        })}</p>
       </div>
 
       <div class="footer">
@@ -616,16 +630,16 @@ app.post('/asistencia', async (req, res) => {
 
     if (asistencia.length === 0) {
       await dbPromise.query(
-        'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, CURDATE(), CURTIME())',
-        [cedula]
+        'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, ?, ?)',
+        [cedula, fechaColombia(), horaColombia()]
       );
 
       return res.json({ mensaje: 'Entrada registrada âœ…' });
     }
 
     await dbPromise.query(
-      'UPDATE asistencias SET hora_salida=CURTIME() WHERE id=?',
-      [asistencia[0].id]
+      'UPDATE asistencias SET hora_salida=? WHERE id=?',
+      [horaColombia(), asistencia[0].id]
     );
 
     return res.json({ mensaje: 'Salida registrada âœ…' });
@@ -761,8 +775,8 @@ app.post('/scan', (req, res) => {
     return res.status(400).json({ mensaje: 'Cedula requerida' });
   }
 
-  const fecha = new Date().toISOString().split('T')[0];
-  const hora = new Date().toTimeString().split(' ')[0];
+  const fecha = fechaColombia();
+  const hora = horaColombia();
 
   const query = `
     SELECT * FROM asistencias 
@@ -823,7 +837,7 @@ app.get('/test', (req, res) => {
   io.emit('notificacion', {
     tipo: 'ENTRADA',
     cedula: '123456',
-    hora: new Date().toTimeString().split(' ')[0]
+    hora: horaColombia()
   });
 
   res.send('Notificación enviada');
@@ -955,11 +969,13 @@ app.get('/reportes', async (req, res) => {
     const [rows] = await dbPromise.query(`
       SELECT 
         a.cedula,
+        e.nombre,
+        e.cargo,
         COUNT(*) AS dias,
-        SUM(a.pago) AS total
+        COALESCE(SUM(COALESCE(a.pago, 0)), 0) AS total
       FROM asistencias a
       INNER JOIN empleados e ON a.cedula = e.cedula
-      GROUP BY a.cedula
+      GROUP BY a.cedula, e.nombre, e.cargo
       ORDER BY a.cedula ASC
     `);
 
@@ -969,6 +985,7 @@ app.get('/reportes', async (req, res) => {
     res.status(500).json({
       success: false,
       msg: 'Error al cargar reportes',
+      detalle: error.message
     });
   }
 });
