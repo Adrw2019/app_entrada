@@ -22,6 +22,23 @@ function fechaColombia() {
   return ahora.toISOString().split('T')[0];
 }
 
+function horaATotalMinutos(hora = '00:00:00') {
+  const [h = '0', m = '0'] = String(hora).split(':');
+  return (Number(h) * 60) + Number(m);
+}
+
+function diferenciaHoras(inicioHora, finHora) {
+  const inicioMin = horaATotalMinutos(inicioHora);
+  let finMin = horaATotalMinutos(finHora);
+
+  // Si cruza medianoche, sumamos 24h al fin.
+  if (finMin < inicioMin) {
+    finMin += 24 * 60;
+  }
+
+  return (finMin - inicioMin) / 60;
+}
+
 const app = express();
 
 const pool = new Pool({
@@ -320,38 +337,53 @@ if (!req.session.cedula) {
           horasJornada = 9.5;
         }
 
-        const entrada = new Date(`1970-01-01T${rows[0].hora_entrada}`);
-        const salida = new Date(`1970-01-01T${salidaStr}`);
-        const entradaOficial = new Date(`1970-01-01T${horaEntradaOficial}`);
-        const salidaOficial = new Date(`1970-01-01T${horaSalidaOficial}`);
+        const entradaStr = rows[0].hora_entrada;
+
+        const entradaMin = horaATotalMinutos(entradaStr);
+        const salidaMinRaw = horaATotalMinutos(salidaStr);
+        const entradaOficialMin = horaATotalMinutos(horaEntradaOficial);
+        const salidaOficialMin = horaATotalMinutos(horaSalidaOficial);
+
+        let salidaMin = salidaMinRaw;
+        if (salidaMin < entradaMin) {
+          salidaMin += 24 * 60;
+        }
+
+        let entradaOficialAjustada = entradaOficialMin;
+        let salidaOficialAjustada = salidaOficialMin;
+        if (entradaOficialAjustada < entradaMin) {
+          entradaOficialAjustada += 24 * 60;
+          salidaOficialAjustada += 24 * 60;
+        }
 
         const valorDia = 60000;
         const valorHora = valorDia / horasJornada;
 
-        // Llegó tarde si entró después de la hora oficial
-        const llegoTarde = entrada > entradaOficial ? 1 : 0;
+        // Llegó tarde a partir de las 8:10 AM (domingo: 9:10 AM).
+        const limiteLlegadaMin = diaSemana === 0 ? (9 * 60) + 10 : (8 * 60) + 10;
+        const llegoTarde = entradaMin > limiteLlegadaMin ? 1 : 0;
 
         // Horas trabajadas reales
-        const horasTrabajadas = (salida - entrada) / (1000 * 60 * 60);
+        const horasTrabajadas = diferenciaHoras(entradaStr, salidaStr);
 
         // Extra por entrar antes
         let extraEntrada = 0;
-        if (entrada < entradaOficial) {
-          extraEntrada = (entradaOficial - entrada) / (1000 * 60 * 60);
+        if (entradaMin < entradaOficialMin) {
+          extraEntrada = (entradaOficialMin - entradaMin) / 60;
         }
 
         // Extra por salir después
         let extraSalida = 0;
-        if (salida > salidaOficial) {
-          extraSalida = (salida - salidaOficial) / (1000 * 60 * 60);
+        if (salidaMin > salidaOficialAjustada) {
+          extraSalida = (salidaMin - salidaOficialAjustada) / 60;
         }
 
         const horasExtra = extraEntrada + extraSalida;
 
         // Descuento si sale antes de la hora oficial
         let descuento = 0;
-        if (salida < salidaOficial) {
-          const horasFaltantes = (salidaOficial - salida) / (1000 * 60 * 60);
+        if (salidaMin < salidaOficialAjustada) {
+          const horasFaltantes = (salidaOficialAjustada - salidaMin) / 60;
           descuento = Math.round(horasFaltantes * valorHora);
         }
 
@@ -632,19 +664,40 @@ app.post('/asistencia', async (req, res) => {
       [cedula]
     );
 
+    const nombre = empleado[0]?.nombre || '';
+    const cargo = empleado[0]?.cargo || '';
+
     if (asistencia.length === 0) {
+      const horaEntrada = horaColombia();
       await dbPromise.query(
         'INSERT INTO asistencias (cedula, fecha, hora_entrada) VALUES (?, ?, ?)',
-        [cedula, fechaColombia(), horaColombia()]
+        [cedula, fechaColombia(), horaEntrada]
       );
+
+      io.emit('notificacion', {
+        tipo: 'ENTRADA',
+        cedula,
+        nombre,
+        cargo,
+        hora: horaEntrada
+      });
 
       return res.json({ mensaje: 'Entrada registrada âœ…' });
     }
 
+    const horaSalida = horaColombia();
     await dbPromise.query(
       'UPDATE asistencias SET hora_salida=? WHERE id=?',
-      [horaColombia(), asistencia[0].id]
+      [horaSalida, asistencia[0].id]
     );
+
+    io.emit('notificacion', {
+      tipo: 'SALIDA',
+      cedula,
+      nombre,
+      cargo,
+      hora: horaSalida
+    });
 
     return res.json({ mensaje: 'Salida registrada âœ…' });
   } catch (error) {
