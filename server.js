@@ -9,6 +9,7 @@ const nodemailer = require('nodemailer');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const session = require('express-session');
+const { createClient } = require('@supabase/supabase-js');
 
 function horaColombia() {
   const ahora = new Date();
@@ -40,6 +41,12 @@ function diferenciaHoras(inicioHora, finHora) {
 }
 
 const app = express();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -1090,8 +1097,21 @@ app.post('/empleados', async (req, res) => {
 
 app.get('/empleados', async (req, res) => {
   try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('empleados')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return res.json(data);
+    }
+
     const result = await pool.query('SELECT * FROM empleados ORDER BY id DESC');
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener empleados:', error);
     res.status(500).json({
@@ -1207,3 +1227,19 @@ server.listen(PORT, '0.0.0.0', () => {
 pool.query('SELECT NOW()')
   .then(() => console.log('Conexion PostgreSQL/Supabase OK'))
   .catch(err => console.error('Error de conexion PostgreSQL/Supabase:', err.message));
+
+if (supabase) {
+  supabase
+    .from('empleados')
+    .select('id')
+    .limit(1)
+    .then(({ error }) => {
+      if (error) {
+        console.error('Error de conexion con Supabase client:', error.message);
+      } else {
+        console.log('Supabase client conectado correctamente');
+      }
+    });
+} else {
+  console.log('Supabase client no configurado: define SUPABASE_URL y SUPABASE_ANON_KEY');
+}
