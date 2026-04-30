@@ -9,6 +9,8 @@ const nodemailer = require('nodemailer');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const session = require('express-session');
+const { createClient } = require('redis');
+const { RedisStore } = require('connect-redis');
 
 function horaColombia() {
   const ahora = new Date();
@@ -40,6 +42,18 @@ function diferenciaHoras(inicioHora, finHora) {
 }
 
 const app = express();
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
+redisClient.on('error', err => {
+  console.error('Error Redis:', err);
+});
+
+redisClient.connect()
+  .then(() => console.log('Redis conectado para sesiones'))
+  .catch(err => console.error('No se pudo conectar Redis:', err));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -74,6 +88,9 @@ transporter.verify()
 app.use(cors());
 app.use(express.json());
 app.use(session({
+  store: new RedisStore({
+    client: redisClient
+  }),
   secret: process.env.SESSION_SECRET || 'asistencia_secret',
   resave: false,
   saveUninitialized: false,
