@@ -42,14 +42,19 @@ function diferenciaHoras(inicioHora, finHora) {
 
 const app = express();
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = (supabaseUrl && supabaseKey)
-  ? createClient(supabaseUrl, supabaseKey)
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
   : null;
 
+const dbPort = Number(process.env.DB_PORT || 5432);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || undefined,
+  host: process.env.DB_HOST || undefined,
+  user: process.env.DB_USER || undefined,
+  password: process.env.DB_PASSWORD || undefined,
+  database: process.env.DB_NAME || undefined,
+  port: Number.isNaN(dbPort) ? 5432 : dbPort,
   ssl: {
     rejectUnauthorized: false
   }
@@ -1242,4 +1247,8 @@ if (supabase) {
     });
 } else {
   console.log('Supabase client no configurado: define SUPABASE_URL y SUPABASE_ANON_KEY');
+}
+
+if (!process.env.DATABASE_URL && process.env.DB_PORT === '3306') {
+  console.warn('Advertencia: DB_PORT=3306 suele ser MySQL. Para Supabase/PostgreSQL normalmente es 5432.');
 }
